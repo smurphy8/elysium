@@ -144,6 +144,14 @@ Must be a number between 0 and 1, exclusive."
       (set-window-buffer (selected-window) elysium--chat-buffer))))
 
 ;;;###autoload
+(defun elysium--normalize-response (response)
+  "Extract a plain string from a tool-result if needed."
+  (if (and (listp response)
+           (eq (car response) 'tool-result)
+           (stringp (nth 2 response)))
+      (nth 2 response)
+    response))
+
 (defun elysium-query (user-query)
   "Send USER-QUERY to elysium from the current buffer or chat buffer."
   (interactive
@@ -167,7 +175,6 @@ Must be a number between 0 and 1, exclusive."
                       (if (use-region-p)
                           (save-excursion
                             (goto-char (region-beginning))
-                            ;; Always record from the beginning of the line
                             (beginning-of-line)
                             (point))
                         (point-min))))
@@ -179,7 +186,6 @@ Must be a number between 0 and 1, exclusive."
                                    (goto-char (region-end))
                                    (beginning-of-line)
                                    (equal current-point (line-beginning-position))))))
-                          ;; Always record to the end of the line
                           (save-excursion
                             (goto-char (region-end))
                             (when start-of-line-p (forward-line -1))
@@ -208,37 +214,43 @@ Must be a number between 0 and 1, exclusive."
       (with-current-buffer chat-buffer
         (goto-char (point-max))
         (when user-query
-	  (insert "\n\n")
+          (insert "\n\n")
           (insert (concat (gptel-prompt-prefix-string) user-query)))
         (insert "\n\n")))
 
     (gptel-request full-query
       :system elysium-base-prompt
       :buffer chat-buffer
-      :callback (apply-partially #'elysium-handle-response code-buffer))))
+      :callback (lambda (response info)
+                  (elysium-handle-response code-buffer
+                                           (elysium--normalize-response response)
+                                           info)))))
 
 (defun elysium-handle-response (code-buffer response info)
   "Handle the RESPONSE from gptel.
 The changes will be applied to CODE-BUFFER in a git merge format.
 INFO is passed into this function from the `gptel-request' function."
-  (when response
-    (let* ((extracted-data (elysium-extract-changes response))
-           (changes (plist-get extracted-data :changes))
-           (explanations (plist-get extracted-data :explanations)))
+  (let ((response (elysium--normalize-response response)))
+    (when response
+      (let* ((extracted-data (elysium-extract-changes response))
+             (changes (plist-get extracted-data :changes))
+             (explanations (plist-get extracted-data :explanations)))
 
-      (when changes
-        (elysium-apply-code-changes code-buffer changes))
+        (when changes
+          (elysium-apply-code-changes code-buffer changes))
 
-      ;; Insert explanations into chat buffer
-      (with-current-buffer elysium--chat-buffer
-        (dolist (explanation explanations)
-          (let ((explanation-info (list :buffer (plist-get info :buffer)
-                                        :position (point-max-marker)
-                                        :in-place t)))
-            (gptel--insert-response (string-trim explanation) explanation-info)))
+        ;; Insert explanations into chat buffer
+        (with-current-buffer elysium--chat-buffer
+          (dolist (explanation explanations)
+            (let ((explanation-info (list :buffer (plist-get info :buffer)
+                                          :position (point-max-marker)
+                                          :in-place t)))
+              (gptel--insert-response (string-trim explanation) explanation-info)))
 
-        (gptel--sanitize-model)
-        (gptel--update-status " Ready" 'success)))))
+          (gptel--sanitize-model)
+          (gptel--update-status " Ready" 'success))))))
+
+
 
 (defun elysium-extract-changes (response)
   "Extract the code-changes and explanations from RESPONSE.
@@ -390,6 +402,14 @@ The query is expected to be after the last '* ' (org-mode) or
         (concat (number-to-string n) "th")
       (concat (number-to-string n)
               (nth (mod n 10) suffixes)))))
+
+(defun elysium--normalize-response (response)
+  "Extract a plain string from a tool-result if needed."
+  (if (and (listp response)
+           (eq (car response) 'tool-result)
+           (stringp (nth 2 response)))
+      (nth 2 response)
+    response))
 
 (provide 'elysium)
 
