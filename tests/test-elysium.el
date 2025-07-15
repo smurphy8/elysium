@@ -1,4 +1,4 @@
-;;; test-elysium.el --- elysium tests-*- lexical-binding: t; package-lint-main-file: "../elysium.el"; -*-
+;;; test-elysium.el --- Legacy elysium tests -*- lexical-binding: t; package-lint-main-file: "../elysium.el"; -*-
 
 ;; Copyright (C) 2024  Free Software Foundation, Inc.
 
@@ -19,12 +19,14 @@
 
 ;;; Commentary:
 ;;
-;; Tests
+;; Legacy tests for Elysium functionality.
+;; These tests focus on response extraction and code application.
 ;;
 
 ;;; Code:
 (require 'elysium)
 (require 'ert)
+(require 'test-helper)
 
 (ert-deftest test-extract-changes ()
   (let* ((example-response
@@ -59,64 +61,57 @@
 		     "2nd Code Change:\n\nThese code changes will run the unit test")))))
 
 (ert-deftest test-apply-multiple-changes ()
-  "Test that the offset is properly setup when applying multiple changes"
-  (let ((test-buffer (generate-new-buffer "*test-buffer*"))
-	(test-backend (gptel--make-backend
-		       :name "test-backend"))
-	(test-lines
-	 (concat "Line 1\n"
-		 "Line 2\n"
-		 "Line 3\n"
-		 "Line 4\n"
-		 "Line 5\n"
-		 "Line 6\n"
-		 "Line 7\n"
-		 "Line 8\n"
-		 "Line 9\n"
-		 "Line 10\n"
-		 "Line 11\n"
-		 "Line 12\n"))
-	(expected-result
-	 (concat "Line 1\n"
-		 "Line 2\n"
-		 "<<<<<<< HEAD\n"
-		 "Line 3\n"
-		 "Line 4\n"
-		 "Line 5\n"
-		 "=======\n"
-		 "New Line 3\n"
-		 "New Line 4\n"
-		 ">>>>>>> test-backend\n"
-		 "Line 6\n"
-		 "<<<<<<< HEAD\n"
-		 "Line 7\n"
-		 "Line 8\n"
-		 "Line 9\n"
-		 "Line 10\n"
-		 "=======\n"
-		 "New Line 7\n"
-		 "New Line 8\n"
-		 "New Line 9\n"
-		 "New Line 10\n"
-		 "New Line 11\n"
-		 ">>>>>>> test-backend\n"
-		 "Line 11\n"
-		 "Line 12\n"))
+  "Test that the offset is properly setup when applying multiple changes."
+  (let ((test-buffer (elysium-test-create-temp-buffer "*test-buffer*" nil
+                                                      (concat "Line 1\n"
+                                                              "Line 2\n"
+                                                              "Line 3\n"
+                                                              "Line 4\n"
+                                                              "Line 5\n"
+                                                              "Line 6\n"
+                                                              "Line 7\n"
+                                                              "Line 8\n"
+                                                              "Line 9\n"
+                                                              "Line 10\n"
+                                                              "Line 11\n"
+                                                              "Line 12\n")))
+        (test-backend (gptel--make-backend :name "test-backend"))
+        (expected-result
+         (concat "Line 1\n"
+                 "Line 2\n"
+                 "<<<<<<< HEAD\n"
+                 "Line 3\n"
+                 "Line 4\n"
+                 "Line 5\n"
+                 "=======\n"
+                 "New Line 3\n"
+                 "New Line 4\n"
+                 ">>>>>>> test-backend\n"
+                 "Line 6\n"
+                 "<<<<<<< HEAD\n"
+                 "Line 7\n"
+                 "Line 8\n"
+                 "Line 9\n"
+                 "Line 10\n"
+                 "=======\n"
+                 "New Line 7\n"
+                 "New Line 8\n"
+                 "New Line 9\n"
+                 "New Line 10\n"
+                 "New Line 11\n"
+                 ">>>>>>> test-backend\n"
+                 "Line 11\n"
+                 "Line 12\n"))
+        (changes '((:start 3 :end 5 :code "New Line 3\nNew Line 4\n")
+                   (:start 7 :end 10 :code
+                           "New Line 7\nNew Line 8\nNew Line 9\nNew Line 10\nNew Line 11"))))
+    (with-current-buffer test-buffer
+      (setq-local gptel-backend test-backend))
 
-	;; Test both newline and no newline after changes
-	(changes '((:start 3 :end 5 :code "New Line 3\nNew Line 4\n")
-		   (:start 7 :end 10 :code
-			   "New Line 7\nNew Line 8\nNew Line 9\nNew Line 10\nNew Line 11"))))
-    (unwind-protect
-	(progn
-	  (with-current-buffer test-buffer
-	    (insert test-lines)
-	    (setq-local gptel-backend test-backend))
+    (elysium-apply-code-changes test-buffer changes)
 
-	  (elysium-apply-code-changes test-buffer changes)
-
-	  (with-current-buffer test-buffer
-	    (should (string= (buffer-string) expected-result)))))))
+    (with-current-buffer test-buffer
+      (should (string= (buffer-string) expected-result)))))
 
 (provide 'test-elysium)
 

@@ -1,4 +1,7 @@
 project_prompt = """
+Always start a session by saying: Welcome To Elysium!
+Before beginning work on this feature, write a short haiku.  Do this only once.
+
 # General Guidelines for our Emacs Lisp Project
 - **For Machines:** Read the summary file for_machines.md that describes the purpose of this project from a computers perspective
   - **Keep Up To Date** write updated for machines at the end of each sesison
