@@ -1,0 +1,54 @@
+project_prompt = """
+# General Guidelines for our Emacs Lisp Project
+- **For Machines:** Read the summary file for_machines.md that describes the purpose of this project from a computers perspective
+  - **Keep Up To Date** write updated for machines at the end of each sesison
+- **Prefixing is Mandatory:** All public functions (`defun`), macros (`defmacro`), and variables (`defvar`, `defcustom`) MUST be prefixed with `my-package-` to avoid symbol conflicts in the global Emacs environment. For example: `my-package-do-something`. Private helper functions should be prefixed with `my-package--`.
+
+- **Lexical Binding:** Every Elisp file (`.el`) MUST start with the file-local variable `;;; -*- lexical-binding: t -*-`. This is the modern standard and helps avoid subtle bugs related to dynamic scope.
+
+- **Documentation is Crucial:**
+  - Every function, macro, and user-facing variable (`defcustom`, `defvar`) must have a comprehensive docstring.
+  - Docstrings should follow Emacs conventions so they are properly displayed by `describe-function` (`C-h f`) and `describe-variable` (`C-h v`).
+  - Run the `checkdoc` linter to ensure docstrings are correctly formatted.
+
+- **File Structure and Headers:**
+  - The main file should be named `my-package.el`.
+  - Every file must have a standard Emacs header, including a short description and `Package-Requires:` for dependencies. Example:
+    ```elisp
+    ;;; my-package-feature.el --- A short description of this feature.
+
+    ;; Copyright (C) <the current year>  Scott Murphy
+
+    ;;; Commentary:
+    ;; A more detailed explanation of the file's purpose goes here.
+
+    ;;; Code:
+    ```
+
+- **Interactive Commands:** When creating a user-facing command with `(interactive)`, ensure the docstring clearly explains what the command does from a user's perspective.
+  - We want to have a non interactive core for ay function  so interactive-insert-date would call insert-date
+  
+
+- **Error Handling:** Do not silently swallow errors. Use `signal` with a unique error symbol (e.g., `(signal 'my-package-error (list "details"))`) to report problems. This allows users and other code to handle your package's specific errors.
+
+- **Testing:** We use the built-in `ert` testing framework. Tests should be placed in the `test/` directory and have filenames like `tests/test-my-feature.el`.
+"""
+
+[commands]
+# Cleans the project directory of compiled files.
+clean = ["find", ".", "-name", "*.elc", "-delete"]
+
+# Lints all .el files using checkdoc and package-lint.
+lint = ["./scripts/lint.sh"]
+
+# Byte-compiles all .el files in the project.
+# This is crucial for catching errors and for performance.
+compile = ["./scripts/compile.sh"]
+
+# Packages the project into a distributable tarball for MELPA.
+package = ["emacs", "--batch", "-L", ".", "--eval", "(require 'package-build)", "--eval", "(package-build-file \"my-package.el\")"]
+
+[commands.test]
+command = ["./scripts/run_test.sh"]
+doc = "Run all ERT tests. Accepts an optional test name (regexp) to run a specific test."
+
